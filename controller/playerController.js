@@ -49,14 +49,13 @@ export async function register(req, res) {
     const saltRounds = 11;
     const passwordHash = await bcrypt.hash(password, saltRounds);
 
-    // insert (ไม่ต้องใส่ id / created_at)
     const result = await database.query(
       `
-      INSERT INTO player (username, password_hash, email)
-      VALUES ($1, $2, $3)
-      RETURNING id, username, email, created_at
+      INSERT INTO player (username, password_hash, email, role)
+      VALUES ($1, $2, $3, $4)
+      RETURNING username, email, role, created_at
       `,
-      [username, passwordHash, email]
+      [username, passwordHash, email, 'player'] // ส่งค่า 'player' เข้าไปเป็น $4
     );
 
     console.log("Player registered successfully");
@@ -194,6 +193,7 @@ export async function login(req, res) {
 
     const theuser = {
       username: userRow.username,
+      role: userRow.role,
       dutyId: userRow.dutyId,
     };
 
@@ -229,3 +229,4 @@ export async function getPlayer(req, res) {
     return res.status(500).json({ message: error.message });
   }
 }
+

@@ -6,6 +6,8 @@ import playerRoutes from './routes/playerRoute.js';
 import stageRoutes from './routes/stageRoute.js';
 import dictRoutes from './routes/dictRoute.js';
 import shopRoutes from './routes/shopRoute.js';
+import monsterRoute from './routes/monsterRoute.js';
+
 import cors from "cors"
 import cookieParser from 'cookie-parser';
 
@@ -18,8 +20,15 @@ app.use(bodyParser.json())
 app.use(cors({
     origin:['http://localhost:5173','http://25.16.201.205:5173','http://26.23.130.235:5173'], //Domain ของ Frontend
     methods:['GET','POST','PUT','DELETE'], //Method ที่อนุญาต
-    credentials:true  //ให้ส่งข้อมูล Header+Cookie ได้
+    credentials:true, //ให้ส่งข้อมูล Header+Cookie ได้
+    allowedHeaders: ["Content-Type", "Authorization"]
 }))
+// app.options("*", cors());
+
+app.use("/img_hero",express.static("img_hero"))
+app.use("/img_monster",express.static("img_monster"))
+app.use("/img_map",express.static("img_map"))
+
 
 app.use(cookieParser());
 
@@ -32,36 +41,13 @@ app.use(playerRoutes);
 app.use(stageRoutes);
 app.use(dictRoutes);
 app.use(shopRoutes);
+app.use(monsterRoute);
 
 //เรียกใช้โหลเดอร์รูปภาพ
 app.use("/asset", express.static("asset"));
 
 app.get('', async(req, res) => {
-    console.log("Hello World E NA TAD");
-    res.send("Hello World E NA TAD");
-});
-
-app.get('/monsters', async(req, res) => {
-    try {
-        const strQry ='SELECT * FROM monster';
-        const result = await database.query(strQry)
-        return res.status(200).json(result.rows)
-    }
-    catch(error) {
-        return res.status(500).json({message: error.message})
-    }
-});
-
-app.get('/Items', async(req, res) => {
-    try {
-        console.log("ทำไมไม่ขึ้น")
-        const strQry ='SELECT * FROM Items';
-        const result = await database.query(strQry)
-        return res.status(200).json(result.rows)
-    }
-    catch(error) {
-        return res.status(500).json({message: error.message})
-    }
+    res.send("Welcome to Hell");
 });
 
 

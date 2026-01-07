@@ -14,7 +14,7 @@ export async function getAllStage(req, res)
 export async function getStageEvents(req, res) 
 {
     const { id } = req.params;
-    console.log(`GET / Stage Events with Monster Defs for Stage ID: ${id}`);
+    console.log(`GET / Stage Events with Monster Defs & Patterns for Stage ID: ${id}`);
 
     try {
       const query = `
@@ -31,9 +31,8 @@ export async function getStageEvents(req, res)
           m.max_hp,
           m.atk_power_min,
           m.atk_power_max,
-          m.cooldown,
 
-          -- 3. ข้อมูล Monster Def (ดึงเป็น Array JSON)
+          -- 3. ข้อมูล Monster Def (Weakness)
           (
             SELECT json_agg(
               json_build_object(
@@ -43,7 +42,20 @@ export async function getStageEvents(req, res)
             )
             FROM monster_def md
             WHERE md.monster_id = m.id
-          ) AS weakness_list
+          ) AS weakness_list,
+
+          -- 4. ข้อมูล Monster Pattern
+          (
+            SELECT json_agg(
+              json_build_object(
+                'pattern_no', mp.pattern_no,
+                'order', mp.pattern_order,
+                'move', mp.pattern_move
+              ) ORDER BY mp.pattern_no ASC, mp.pattern_order ASC
+            )
+            FROM monster_move mp
+            WHERE mp.monster_id = m.id
+          ) AS pattern_list
 
         FROM stage_event se
         JOIN monster m ON se.monster_id = m.id
