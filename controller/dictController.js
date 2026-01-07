@@ -194,15 +194,15 @@ export async function queryDict(req, res) {
     length = 0,
     level = null,
     limit = 50,
+    lastWord, // ⭐ cursor
   } = req.body;
 
   let conditions = [];
   let values = [];
   let idx = 1;
 
-  /* ---------- WORD FILTER (ต่อคำ) ---------- */
+  /* ---------- WORD FILTER ---------- */
   if (startsWith && contains) {
-    // a + n = an%
     conditions.push(`word ILIKE $${idx++}`);
     values.push(`${startsWith}${contains}%`);
   } else if (startsWith) {
@@ -211,6 +211,12 @@ export async function queryDict(req, res) {
   } else if (contains) {
     conditions.push(`word ILIKE $${idx++}`);
     values.push(`${contains}%`);
+  }
+
+  /* ---------- CURSOR ---------- */
+  if (lastWord) {
+    conditions.push(`word > $${idx++}`);
+    values.push(lastWord);
   }
 
   /* ---------- LENGTH ---------- */
@@ -230,14 +236,13 @@ export async function queryDict(req, res) {
     : "";
 
   const sql = `
-    SELECT word, type, meaning, level, LENGTH(word) AS length
+    SELECT word, type, meaning, level
     FROM dictionary
     ${whereClause}
     ORDER BY word ASC
     LIMIT $${idx}
   `;
 
-  // +1 เพื่อเช็ก hasNext
   values.push(limit + 1);
 
   try {
@@ -251,6 +256,7 @@ export async function queryDict(req, res) {
       count: data.length,
       hasNext,
       data,
+      lastWord: data.length ? data[data.length - 1].word : null, // ⭐ ส่งกลับ
     });
   } catch (error) {
     console.error(error);
