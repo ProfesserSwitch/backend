@@ -2,8 +2,9 @@ import database from "../service/database.js";
 
 export async function getMonster(req, res) {
   try {
+    // ไม่ต้องแก้ Query เพราะ m.* จะดึง speed มาเองถ้ามีใน DB
     const result = await database.query(`
-      SELECT
+      SELECT 
         m.*,
         COALESCE(
           JSON_AGG(
@@ -17,7 +18,7 @@ export async function getMonster(req, res) {
         ) AS monster_moves
       FROM monster m
       LEFT JOIN (
-        SELECT
+        SELECT 
           monster_id,
           pattern_no,
           JSON_AGG(
@@ -29,7 +30,7 @@ export async function getMonster(req, res) {
           ) AS moves
         FROM monster_move
         GROUP BY monster_id, pattern_no
-      ) p
+      ) p 
         ON p.monster_id = m.id
       GROUP BY m.id
     `);
@@ -50,6 +51,7 @@ export async function createMonster(req, res) {
     description,
     armor,
     exp,
+    speed, // [เพิ่ม] รับค่า speed
     monster_moves = []
   } = req.body;
 
@@ -59,13 +61,14 @@ export async function createMonster(req, res) {
     await client.query("BEGIN");
 
     // 1️⃣ insert monster
+    // [แก้ไข] เพิ่ม column speed และ placeholder $9
     await client.query(
       `
       INSERT INTO monster
-        (id, name, max_hp, atk_power_min, atk_power_max, description, armor, exp)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+        (id, name, max_hp, atk_power_min, atk_power_max, description, armor, exp, speed)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
       `,
-      [id, name, max_hp, atk_power_min, atk_power_max, description, armor, exp]
+      [id, name, max_hp, atk_power_min, atk_power_max, description, armor, exp, speed] // [เพิ่ม] speed ใน array
     );
 
     // 2️⃣ insert monster_move ทั้งก้อน
@@ -104,6 +107,7 @@ export async function updateMonster(req, res) {
     description,
     armor,
     exp,
+    speed, // [เพิ่ม] รับค่า speed
     monster_moves = []
   } = req.body;
 
@@ -114,6 +118,7 @@ export async function updateMonster(req, res) {
     await client.query("BEGIN");
 
     // update monster
+    // [แก้ไข] เพิ่ม speed=$8 และขยับ id เป็น $9
     const result = await client.query(
       `
       UPDATE monster SET
@@ -123,10 +128,11 @@ export async function updateMonster(req, res) {
         atk_power_max=$4,
         description=$5,
         armor=$6,
-        exp=$7
-      WHERE id=$8
+        exp=$7,
+        speed=$8
+      WHERE id=$9
       `,
-      [name, max_hp, atk_power_min, atk_power_max, description, armor, exp, id]
+      [name, max_hp, atk_power_min, atk_power_max, description, armor, exp, speed, id] // [เพิ่ม] speed และเรียงลำดับใหม่
     );
 
     if (result.rowCount === 0) {
@@ -144,7 +150,7 @@ export async function updateMonster(req, res) {
       for (const move of pattern.moves) {
         await client.query(
           `
-          INSERT INTO monster_move
+          INSERT INTO monster_move 
             (monster_id, pattern_no, pattern_order, pattern_move)
           VALUES ($1,$2,$3,$4)
           `,
@@ -165,6 +171,7 @@ export async function updateMonster(req, res) {
 }
 
 export async function deleteMonster(req, res) {
+  // Delete ไม่ต้องทำอะไรเพิ่ม เพราะลบตาม ID
   const { id } = req.params;
 
   const result = await database.query(
