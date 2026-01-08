@@ -22,7 +22,7 @@ export async function getStageEvents(req, res)
           -- 1. ข้อมูล Event
           se.id AS event_id,
           se.stage_id,
-          se.wave_no,
+          se.distant_spawn,
           se.level,
 
           -- 2. ข้อมูล Monster
@@ -31,6 +31,7 @@ export async function getStageEvents(req, res)
           m.max_hp,
           m.atk_power_min,
           m.atk_power_max,
+          m.speed,
 
           -- 3. ข้อมูล Monster Def (Weakness)
           (
