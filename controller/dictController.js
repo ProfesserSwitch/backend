@@ -194,7 +194,7 @@ export async function queryDict(req, res) {
     length = 0,
     level = null,
     limit = 50,
-    lastWord, // ⭐ cursor
+    lastWord, // cursor
   } = req.body;
 
   let conditions = [];
