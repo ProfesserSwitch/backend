@@ -7,6 +7,7 @@ import stageRoutes from './routes/stageRoute.js';
 import dictRoutes from './routes/dictRoute.js';
 import shopRoutes from './routes/shopRoute.js';
 import monsterRoute from './routes/monsterRoute.js';
+import heroRoutes from './routes/heroRoute.js';
 
 import cors from "cors"
 import cookieParser from 'cookie-parser';
@@ -42,6 +43,7 @@ app.use(stageRoutes);
 app.use(dictRoutes);
 app.use(shopRoutes);
 app.use(monsterRoute);
+app.use(heroRoutes);
 
 //เรียกใช้โหลเดอร์รูปภาพ
 app.use("/asset", express.static("asset"));

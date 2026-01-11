@@ -1,13 +1,21 @@
-import express from "express"
-import * as playerC from "../controller/playerController.js"
-import { authMiddleware } from "../middlewares/auth.js"
-const router = express.Router()
+import express from "express";
+import * as playerC from "../controller/playerController.js";
+import { authMiddleware } from "../middlewares/auth.js";
 
-router.post('/register',playerC.register)
-router.post('/login',playerC.login)
-router.get('/logout',playerC.logout)
-router.get('/checkAuth',authMiddleware,playerC.checkAuth)
+const router = express.Router();
 
-router.get('/getplayer',playerC.getPlayer)
+router.post("/register", playerC.register);
+router.post("/login", playerC.login);
+router.get("/logout", playerC.logout);
+router.get("/checkAuth", authMiddleware, playerC.checkAuth);
 
-export default router
+router.get("/getplayer", playerC.getPlayer);
+
+// ⭐⭐ เพิ่มอันนี้ ⭐⭐
+router.get(
+  "/checkFirstTime",
+  authMiddleware,
+  playerC.checkFirstTime
+);
+
+export default router;
