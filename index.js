@@ -30,13 +30,7 @@ app.use("/img_hero",express.static("img_hero"))
 app.use("/img_monster",express.static("img_monster"))
 app.use("/img_map",express.static("img_map"))
 
-
 app.use(cookieParser());
-
-// เชื่อมต่อกับ Database Server
-const database = new Pool({
-  connectionString:`postgres://dev:${encodeURIComponent('8264')}@127.0.0.1:5432/WordGame`
-});
 
 app.use(playerRoutes);
 app.use(stageRoutes);
@@ -45,14 +39,9 @@ app.use(shopRoutes);
 app.use(monsterRoute);
 app.use(heroRoutes);
 
-//เรียกใช้โหลเดอร์รูปภาพ
-app.use("/asset", express.static("asset"));
-
 app.get('', async(req, res) => {
     res.send("Welcome to Hell");
 });
-
-
 
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
