@@ -58,10 +58,10 @@ export async function getStageEvents(req, res)
             WHERE mp.monster_id = m.id
           ) AS pattern_list
 
-        FROM stage_event se
+        FROM monster_spawn se
         JOIN monster m ON se.monster_id = m.id
         WHERE se.stage_id = $1
-        ORDER BY se.wave_no ASC
+        ORDER BY se.distant_spawn ASC
       `;
 
       const result = await database.query(query, [id]);

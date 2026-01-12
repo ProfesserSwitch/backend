@@ -18,4 +18,12 @@ router.get(
   playerC.checkFirstTime
 );
 
+
+router.post(
+  "/select-hero",
+  authMiddleware,
+  playerC.selectHero
+);
+
+
 export default router;

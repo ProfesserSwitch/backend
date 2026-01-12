@@ -51,11 +51,11 @@ export async function register(req, res) {
 
     const result = await database.query(
       `
-      INSERT INTO player (username, password_hash, email, role)
-      VALUES ($1, $2, $3, $4)
-      RETURNING username, email, role, created_at
+      INSERT INTO player (username, password_hash, email, role, money)
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING username, email, role, money, created_at
       `,
-      [username, passwordHash, email, 'player'] // ส่งค่า 'player' เข้าไปเป็น $4
+      [username, passwordHash, email, 'player', 0] 
     );
 
     console.log("Player registered successfully");
@@ -81,10 +81,10 @@ export async function login(req, res) {
       return res.json({ isSuccess: false, message: "invalid data" });
     }
 
-    const result = await database.query({
-      text: `SELECT * FROM player WHERE username = $1`,
-      values: [username],
-    });
+    const result = await database.query(
+      `SELECT * FROM player WHERE username = $1`,
+      [username]
+    );
 
     if (result.rowCount === 0) {
       return res.json({ isSuccess: false, message: "not found username" });
@@ -97,34 +97,89 @@ export async function login(req, res) {
       return res.json({ isSuccess: false, message: "invalid password" });
     }
 
+    // ⭐ ดึง hero ของผู้เล่น
+    const heroResult = await database.query(
+      `
+      SELECT *
+      FROM player_hero
+      WHERE player_id = $1
+      ORDER BY hero_id ASC
+      `,
+      [userRow.username]
+    );
+
     const theuser = {
       username: userRow.username,
       role: userRow.role,
+      money: userRow.money,
       dutyId: userRow.dutyId,
+      // ⭐ hero ทั้งหมด
+      heroes: heroResult.rows,
     };
 
-    const token = jwt.sign(theuser, "ImGroot", { expiresIn: "1h" });
+    const token = jwt.sign(
+      {
+        username: theuser.username,
+        role: theuser.role,
+      },
+      "ImGroot",
+      { expiresIn: "1h" }
+    );
 
     return res.json({
       isSuccess: true,
-      token,        // ⭐ สำคัญ
-      user: theuser // ⭐ สำคัญ
+      token,
+      user: theuser,
     });
   } catch (err) {
+    console.error(err);
     return res.status(500).json({ isSuccess: false, message: "error" });
   }
 }
+
 export async function logout(req, res) {
   return res.json({ isSuccess: true });
 }
 
 // ตรวจสอบสถานะการล็อกอิน ว่า ยังล็อกอินอยู่ไหม
 export async function checkAuth(req, res) {
-  return res.json({
+  try {
+    const username = req.user.username;
+
+    // 🔹 ดึง player
+    const playerResult = await database.query(
+      `SELECT username, role, money FROM player WHERE username = $1`,
+      [username]
+    );
+
+    if (playerResult.rowCount === 0) {
+      return res.status(401).json({ isSuccess: false });
+    }
+
+    // 🔹 ดึง hero ของผู้เล่น
+    const heroResult = await database.query(
+      `
+      SELECT *
+      FROM player_hero
+      WHERE player_id = $1
+      ORDER BY hero_id ASC
+      `,
+      [username]
+    );
+
+    return res.json({
       isSuccess: true,
-      user: req.user,
+      user: {
+        ...playerResult.rows[0],
+        heroes: heroResult.rows,
+      },
     });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ isSuccess: false });
+  }
 }
+
 
 export async function checkFirstTime(req, res) {
   try {
@@ -160,6 +215,65 @@ export async function checkFirstTime(req, res) {
     });
   }
 }
+
+
+export async function selectHero(req, res) {
+  const client = await database.connect();
+
+  try {
+    const username = req.user.username;
+    const { heroId } = req.body;
+
+    if (!heroId) {
+      return res.status(400).json({ isSuccess: false });
+    }
+
+    await client.query("BEGIN");
+
+    // 1️⃣ ปิด hero ตัวเดิมทั้งหมด
+    await client.query(
+      `
+      UPDATE player_hero
+      SET is_selected = false
+      WHERE player_id = $1
+      `,
+      [username]
+    );
+
+    // 2️⃣ เปิด hero ตัวใหม่
+    const result = await client.query(
+      `
+      UPDATE player_hero
+      SET is_selected = true
+      WHERE player_id = $1 AND hero_id = $2
+      RETURNING *
+      `,
+      [username, heroId]
+    );
+
+    if (result.rowCount === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({
+        isSuccess: false,
+        message: "hero not owned",
+      });
+    }
+
+    await client.query("COMMIT");
+
+    return res.json({
+      isSuccess: true,
+      selectedHero: result.rows[0],
+    });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error(err);
+    return res.status(500).json({ isSuccess: false });
+  } finally {
+    client.release();
+  }
+}
+
 
 export async function getPlayer(req, res) {
   console.log(`GET / Player is Requested`);
