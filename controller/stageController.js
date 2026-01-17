@@ -11,51 +11,125 @@ export async function getAllStage(req, res)
     }   
 }
 
-export async function getStageEvents(req, res) 
-{
-    const { id } = req.params;
-    console.log(`GET / Stage Events with Monster Data & Patterns (No Def) for Stage ID: ${id}`);
+export async function getStageEvents(req, res) {
+  const { id } = req.params;
+  console.log(`GET / Stage Info & Events (FINAL) for Stage ID: ${id}`);
 
-    try {
-      const query = `
-        SELECT 
-          -- 1. ข้อมูล Event
-          se.id AS event_id,
-          se.stage_id,
-          se.distant_spawn,
-          se.level AS spawn_level, -- เปลี่ยนชื่อกันสับสนกับ level ของ monster (ถ้ามี)
+  const client = await database.connect();
 
-          -- 2. ข้อมูล Monster ทั้งหมด (ใช้ m.*)
-          m.*,
+  try {
+    // 1️⃣ ดึงข้อมูล Stage
+    const stageResult = await client.query(
+      `SELECT * FROM stage WHERE id = $1`,
+      [id]
+    );
 
-          -- 3. ข้อมูล Monster Pattern (เก็บไว้ตามเดิม)
-          (
-            SELECT json_agg(
-              json_build_object(
-                'pattern_no', mp.pattern_no,
-                'order', mp.pattern_order,
-                'move', mp.pattern_move
-              ) ORDER BY mp.pattern_no ASC, mp.pattern_order ASC
+    if (stageResult.rowCount === 0) {
+      return res.status(404).json({ message: "Stage not found" });
+    }
+
+    const stageData = stageResult.rows[0];
+
+    // 2️⃣ ดึง Monster Spawn + Monster + Move Pattern
+    const query = `
+      SELECT
+        se.id              AS spawn_id,
+        se.stage_id,
+        se.distant_spawn,
+
+        m.id               AS monster_id,
+        m.name,
+        m.description,
+        m.max_hp,
+        m.atk_power_min,
+        m.atk_power_max,
+        m.armor,
+        m.exp,
+        m.speed,
+        m."isBoss",
+
+        (
+          SELECT json_agg(
+            json_build_object(
+              'pattern_no', mp.pattern_no,
+              'order', mp.pattern_order,
+              'move', json_build_object(
+                'id', mv.id,
+                'name', mv.move_name,
+                'type', mv.type,
+                'is_quiz', mv.is_quiz,
+                'is_dash', mv.is_dash,
+                'power', mv.power,
+                'debuff_code', mv.debuff_code,
+                'debuff_chance', mv.debuff_chance,
+                'debuff_count', mv.debuff_count,
+                'debuff_turn', mv.debuff_turn,
+                'target', mv.target
+              )
             )
-            FROM monster_move mp
-            WHERE mp.monster_id = m.id
-          ) AS pattern_list
+            ORDER BY mp.pattern_no, mp.pattern_order
+          )
+          FROM monster_move mp
+          JOIN move mv ON mp.pattern_move = mv.id
+          WHERE mp.monster_id = m.id
+        ) AS pattern_list
 
-        FROM monster_spawn se
-        JOIN monster m ON se.monster_id = m.id
-        WHERE se.stage_id = $1
-        ORDER BY se.distant_spawn ASC
-      `;
+      FROM monster_spawn se
+      JOIN monster m ON se.monster_id = m.id
+      WHERE se.stage_id = $1
+      ORDER BY se.distant_spawn ASC
+    `;
 
-      const result = await database.query(query, [id]);
+    const eventResult = await client.query(query, [id]);
 
-      return res.status(200).json(result.rows);
+    // 3️⃣ Group ตามระยะ spawn
+    const groupedEvents = eventResult.rows.reduce((acc, row) => {
+      const dist = Number(row.distant_spawn);
 
-    } catch (error) {
-      console.error(error);
-      return res.status(500).json({ message: error.message });
-    } 
+      let group = acc.find(g => g.distance === dist);
+
+      const monsterData = {
+        spawn_id: row.spawn_id,
+        monster_id: row.monster_id,
+        name: row.name,
+        description: row.description,
+        max_hp: row.max_hp,
+        atk_power_min: row.atk_power_min,
+        atk_power_max: row.atk_power_max,
+        armor: row.armor,
+        exp: row.exp,
+        speed: row.speed,
+        isBoss: row.isBoss,
+        pattern_list: row.pattern_list ?? []
+      };
+
+      if (group) {
+        group.monsters.push(monsterData);
+      } else {
+        acc.push({
+          distance: dist,
+          monsters: [monsterData]
+        });
+      }
+
+      return acc;
+    }, []);
+
+    // 4️⃣ Response
+    return res.status(200).json({
+      ...stageData,
+      events: groupedEvents
+    });
+
+  } catch (error) {
+    console.error("getStageEvents Error:", error);
+    return res.status(500).json({ message: error.message });
+  } finally {
+    client.release();
+  }
 }
+
+
 
 // ==============================
 // STAGE CRUD (MAP CRUD)

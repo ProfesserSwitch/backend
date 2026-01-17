@@ -5,7 +5,6 @@ import bodyParser from "body-parser";
 import playerRoutes from './routes/playerRoute.js';
 import stageRoutes from './routes/stageRoute.js';
 import dictRoutes from './routes/dictRoute.js';
-import shopRoutes from './routes/shopRoute.js';
 import monsterRoute from './routes/monsterRoute.js';
 import heroRoutes from './routes/heroRoute.js';
 
@@ -35,7 +34,6 @@ app.use(cookieParser());
 app.use(playerRoutes);
 app.use(stageRoutes);
 app.use(dictRoutes);
-app.use(shopRoutes);
 app.use(monsterRoute);
 app.use(heroRoutes);
 

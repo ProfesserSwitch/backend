@@ -24,6 +24,20 @@ router.post(
   authMiddleware,
   playerC.selectHero
 );
-
+router.post(
+  "/buy-hero", 
+  authMiddleware, 
+  playerC.buyHero
+);
+router.post(
+  "/complete-stage",
+  authMiddleware,
+  playerC.unlockNextStage
+);
+router.post(
+  "/update-money",
+  authMiddleware,
+  playerC.updateMoney
+);
 
 export default router;

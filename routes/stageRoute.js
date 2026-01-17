@@ -6,8 +6,8 @@ const router = express.Router();
 // ==============================
 //  STAGE (/stage)
 // ==============================
-router.get("/stage/getAllStage", C.getAllStage);
-router.get("/stage/getStageById/:id", C.getStageEvents);
+router.get("/getAllStage", C.getAllStage);
+router.get("/getStageById/:id", C.getStageEvents);
 
 // CRUD ใหม่
 router.get("/stage/:id", C.getStageById);
