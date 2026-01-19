@@ -7,6 +7,7 @@ import stageRoutes from './routes/stageRoute.js';
 import dictRoutes from './routes/dictRoute.js';
 import monsterRoute from './routes/monsterRoute.js';
 import heroRoutes from './routes/heroRoute.js';
+import moveRoutes from './routes/moveRoute.js';
 
 import cors from "cors"
 import cookieParser from 'cookie-parser';
@@ -36,6 +37,7 @@ app.use(stageRoutes);
 app.use(dictRoutes);
 app.use(monsterRoute);
 app.use(heroRoutes);
+app.use(moveRoutes);
 
 app.get('', async(req, res) => {
     res.send("Welcome to Hell");
