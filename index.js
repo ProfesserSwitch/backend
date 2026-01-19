@@ -8,6 +8,7 @@ import dictRoutes from './routes/dictRoute.js';
 import monsterRoute from './routes/monsterRoute.js';
 import heroRoutes from './routes/heroRoute.js';
 import moveRoutes from './routes/moveRoute.js';
+import serverRoutes from './routes/serverRoute.js'
 
 import cors from "cors"
 import cookieParser from 'cookie-parser';
@@ -38,6 +39,7 @@ app.use(dictRoutes);
 app.use(monsterRoute);
 app.use(heroRoutes);
 app.use(moveRoutes);
+app.use(serverRoutes);
 
 app.get('', async(req, res) => {
     res.send("Welcome to Hell");
