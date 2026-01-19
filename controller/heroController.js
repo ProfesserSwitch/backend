@@ -78,12 +78,10 @@ export async function createHero(req, res) {
       name,
       price,
       description,
-      base_str,
-      base_dex,
-      base_int,
-      base_con,
-      base_faith,
-      base_luck,
+      hp_lv,
+      power_lv,
+      speed_lv,
+      slot_lv,
       talk_win,
       talk_clear_stage,
     } = req.body;
@@ -91,21 +89,19 @@ export async function createHero(req, res) {
     await database.query(
       `
       INSERT INTO hero
-      (id, name, price, description, base_str, base_dex, base_int, base_con, base_faith, base_luck, talk_win, talk_clear_stage)
+      (id, name, price, description, hp_lv, power_lv, speed_lv, slot_lv, talk_win, talk_clear_stage)
       VALUES
-      ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+      ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
       `,
       [
         id,
         name,
         Number(price),
         description ?? null,
-        Number(base_str),
-        Number(base_dex),
-        Number(base_int),
-        Number(base_con),
-        Number(base_faith),
-        base_luck === "" || base_luck == null ? null : Number(base_luck),
+        Number(hp_lv),
+        Number(power_lv),
+        Number(speed_lv),
+        Number(slot_lv),
         talk_win ?? null,
         talk_clear_stage ?? null,
       ]
@@ -127,12 +123,10 @@ export async function updateHero(req, res) {
       name,
       price,
       description,
-      base_str,
-      base_dex,
-      base_int,
-      base_con,
-      base_faith,
-      base_luck,
+      hp_lv,
+      power_lv,
+      speed_lv,
+      slot_lv,
       talk_win,
       talk_clear_stage,
     } = req.body;
@@ -143,26 +137,22 @@ export async function updateHero(req, res) {
         name=$1,
         price=$2,
         description=$3,
-        base_str=$4,
-        base_dex=$5,
-        base_int=$6,
-        base_con=$7,
-        base_faith=$8,
-        base_luck=$9,
-        talk_win=$10,
-        talk_clear_stage=$11
-      WHERE id=$12
+        hp_lv=$4,
+        power_lv=$5,
+        speed_lv=$6,
+        slot_lv=$7,
+        talk_win=$8,
+        talk_clear_stage=$9
+      WHERE id=$10
       `,
       [
         name,
         Number(price),
         description ?? null,
-        Number(base_str),
-        Number(base_dex),
-        Number(base_int),
-        Number(base_con),
-        Number(base_faith),
-        base_luck === "" || base_luck == null ? null : Number(base_luck),
+        Number(hp_lv),
+        Number(power_lv),
+        Number(speed_lv),
+        Number(slot_lv),
         talk_win ?? null,
         talk_clear_stage ?? null,
         id,

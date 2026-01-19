@@ -1,5 +1,48 @@
 import database from "../service/database.js";
+import fs from "fs";
+import path from "path";
+import multer from "multer";
 
+// ==================================================
+// ✅ MULTER CONFIG (อยู่ใน controller ทั้งหมด)
+// ==================================================
+
+// เก็บเป็น img_map/{stageId}.png
+const mapStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, "img_map"),
+  filename: (req, file, cb) => {
+    const { id } = req.params;
+    cb(null, `${id}.png`);
+  },
+});
+
+const mapFileFilter = (req, file, cb) => {
+  if (file.mimetype !== "image/png") {
+    return cb(new Error("Only PNG is allowed (image/png)"));
+  }
+  cb(null, true);
+};
+
+// export middleware ให้ route เรียกใช้
+export const uploadStageMapMiddleware = multer({
+  storage: mapStorage,
+  fileFilter: mapFileFilter,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+}).single("map");
+
+// handler error ของ multer ให้ตอบ JSON สวย ๆ
+export function mapUploadErrorHandler(err, req, res, next) {
+  if (!err) return next();
+
+  if (err.code === "LIMIT_FILE_SIZE") {
+    return res.status(400).json({ message: "File too large (max 5MB)" });
+  }
+  return res.status(400).json({ message: err.message || "Upload error" });
+}
+
+// ==================================================
+// STAGE LIST
+// ==================================================
 export async function getAllStage(req, res) 
 {
     console.log(`GET / Stage is Requested`);
@@ -129,13 +172,11 @@ export async function getStageEvents(req, res) {
   }
 }
 
-
-
 // ==============================
-// STAGE CRUD (MAP CRUD)
+// STAGE CRUD
 // ==============================
 
-// ✅ GET /stage/:id
+// GET /stage/:id
 export async function getStageById(req, res) {
   try {
     const { id } = req.params;
@@ -147,7 +188,7 @@ export async function getStageById(req, res) {
   }
 }
 
-// ✅ POST /stage
+// POST /stage
 export async function createStage(req, res) {
   try {
     const { id, orderNo, name, description, money_reward, distant_goal } = req.body;
@@ -173,7 +214,7 @@ export async function createStage(req, res) {
   }
 }
 
-// ✅ PUT /stage/:id
+// PUT /stage/:id
 export async function updateStage(req, res) {
   try {
     const { id } = req.params;
@@ -206,7 +247,7 @@ export async function updateStage(req, res) {
   }
 }
 
-// ✅ DELETE /stage/:id  (ลบ spawn ก่อน กัน FK)
+// DELETE /stage/:id  (ลบ spawn ก่อน กัน FK + ลบ map ถ้ามี)
 export async function deleteStage(req, res) {
   try {
     const { id } = req.params;
@@ -216,18 +257,62 @@ export async function deleteStage(req, res) {
     const r = await database.query("DELETE FROM stage WHERE id=$1", [id]);
     if (r.rowCount === 0) return res.status(404).json({ message: "stage not found" });
 
+    // ลบไฟล์ map ถ้ามี
+    const filePath = path.join(process.cwd(), "img_map", `${id}.png`);
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+
     return res.status(200).json({ message: "stage deleted" });
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
 }
 
+// ==============================
+// ✅ MAP UPLOAD / DELETE
+// ==============================
+
+// POST /stage/:id/map
+export async function uploadStageMap(req, res) {
+  try {
+    const { id } = req.params;
+
+    const r = await database.query("SELECT id FROM stage WHERE id=$1", [id]);
+    if (r.rowCount === 0) return res.status(404).json({ message: "stage not found" });
+
+    if (!req.file) return res.status(400).json({ message: "missing file field: map" });
+
+    return res.status(200).json({
+      message: "map uploaded",
+      filename: req.file.filename,
+      url: `/img_map/${req.file.filename}`,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+}
+
+// DELETE /stage/:id/map
+export async function deleteStageMap(req, res) {
+  try {
+    const { id } = req.params;
+
+    const filePath = path.join(process.cwd(), "img_map", `${id}.png`);
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ message: "map not found" });
+    }
+
+    fs.unlinkSync(filePath);
+    return res.status(200).json({ message: "map deleted" });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+}
+
 // =====================================================
-// ✅ SPAWN (วางมอนสเตอร์ในด่าน) — CRUD
-// table: monster_spawn(id, stage_id, monster_id, level, distant_spawn)
+// ✅ SPAWN (monster_spawn) — CRUD
 // =====================================================
 
-// ✅ GET /spawn?stage_id=xxx
+// GET /spawn?stage_id=xxx
 export async function getSpawns(req, res) {
   try {
     const { stage_id } = req.query;
@@ -247,7 +332,7 @@ export async function getSpawns(req, res) {
   }
 }
 
-// ✅ POST /spawn
+// POST /spawn
 export async function createSpawn(req, res) {
   try {
     const { stage_id, monster_id, level, distant_spawn } = req.body;
@@ -267,7 +352,7 @@ export async function createSpawn(req, res) {
   }
 }
 
-// ✅ PUT /spawn/:id
+// PUT /spawn/:id
 export async function updateSpawn(req, res) {
   try {
     const { id } = req.params;
@@ -293,7 +378,7 @@ export async function updateSpawn(req, res) {
   }
 }
 
-// ✅ DELETE /spawn/:id
+// DELETE /spawn/:id
 export async function deleteSpawn(req, res) {
   try {
     const { id } = req.params;

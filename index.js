@@ -21,7 +21,7 @@ app.use(bodyParser.json())
 
 app.use(cors({
     origin:['http://localhost:5173','http://25.16.201.205:5173','http://26.23.130.235:5173'], //Domain ของ Frontend
-    methods:['GET','POST','PUT','DELETE'], //Method ที่อนุญาต
+    methods:['GET','POST','PUT','DELETE', 'PATCH'], //Method ที่อนุญาต
     credentials:true, //ให้ส่งข้อมูล Header+Cookie ได้
     allowedHeaders: ["Content-Type", "Authorization"]
 }))

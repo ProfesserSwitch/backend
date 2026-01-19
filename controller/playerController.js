@@ -88,7 +88,6 @@ export async function register(req, res) {
         player_id,
         hero_id,
         level,
-        current_exp,
         next_exp,
         is_selected
       )
@@ -96,7 +95,6 @@ export async function register(req, res) {
       (
         $1, $2,
         1,
-        0,
         100,
         true
       )
@@ -158,16 +156,15 @@ export async function login(req, res) {
         ph.id AS player_hero_id,
         ph.hero_id,
         ph.level,
-        ph.current_exp,
         ph.next_exp,
         ph.is_selected,
 
         h.name,
         h.description,
-        h.hp,
-        h.power,
-        h.speed,
-        h.slot,
+        h.hp_lv,
+        h.power_lv,
+        h.speed_lv,
+        h.slot_lv,
         h.spin_point
 
       FROM player_hero ph
@@ -246,15 +243,14 @@ export async function checkAuth(req, res) {
         ph.id AS player_hero_id,
         ph.hero_id,
         ph.level,
-        ph.current_exp,
         ph.is_selected,
 
         h.name,
         h.description,
-        h.hp,
-        h.power,
-        h.speed,
-        h.slot,
+        h.hp_lv,
+        h.power_lv,
+        h.speed_lv,
+        h.slot_lv,
         h.spin_point
 
       FROM player_hero ph
@@ -438,7 +434,7 @@ export async function buyHero(req, res) {
       `
       INSERT INTO player_hero (
         player_id, hero_id,
-        level, current_exp, next_exp, is_selected
+        level, next_exp, is_selected
       )
       VALUES (
         $1, $2,
