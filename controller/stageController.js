@@ -73,7 +73,7 @@ export async function getStageEvents(req, res) {
 
     const stageData = stageResult.rows[0];
 
-    // 2️⃣ ดึง Monster Spawn + Monster + Move Pattern
+    // 2️⃣ ดึง Monster Spawn + Monster + Move Pattern + Quiz Move Details
     const query = `
       SELECT
         se.id              AS spawn_id,
@@ -83,14 +83,35 @@ export async function getStageEvents(req, res) {
         m.id               AS monster_id,
         m.name,
         m.description,
-        m.max_hp,
-        m.atk_power_min,
-        m.atk_power_max,
-        m.armor,
+        m.hp,              -- 🟢 แก้จาก max_hp
+        m.power,           -- 🟢 แก้จาก atk_power_min/max รวมเป็น power
+        -- m.armor ลบออกแล้ว
         m.exp,
         m.speed,
         m."isBoss",
+        m.quiz_move_code,  -- 🟢 เพิ่ม
+        m.quiz_move_cost,  -- 🟢 เพิ่ม
 
+        -- 🟢 3️⃣ ดึงข้อมูล Quiz Move (แยกออกมาตามคำขอ)
+        (
+          SELECT json_build_object(
+            'id', qm.id,
+            'name', qm.move_name,
+            'type', qm.type,
+            'is_quiz', qm.is_quiz,
+            'is_dash', qm.is_dash,
+            'power', qm.power,
+            'debuff_code', qm.debuff_code,
+            'debuff_chance', qm.debuff_chance,
+            'debuff_count', qm.debuff_count,
+            'debuff_turn', qm.debuff_turn,
+            'target', qm.target
+          )
+          FROM move qm
+          WHERE qm.id = m.quiz_move_code
+        ) AS quiz_move_info,
+
+        -- 4️⃣ ดึงข้อมูล Move Pattern (เหมือนเดิม)
         (
           SELECT json_agg(
             json_build_object(
@@ -125,7 +146,7 @@ export async function getStageEvents(req, res) {
 
     const eventResult = await client.query(query, [id]);
 
-    // 3️⃣ Group ตามระยะ spawn
+    // 5️⃣ Group ตามระยะ spawn
     const groupedEvents = eventResult.rows.reduce((acc, row) => {
       const dist = Number(row.distant_spawn);
 
@@ -136,13 +157,17 @@ export async function getStageEvents(req, res) {
         monster_id: row.monster_id,
         name: row.name,
         description: row.description,
-        max_hp: row.max_hp,
-        atk_power_min: row.atk_power_min,
-        atk_power_max: row.atk_power_max,
-        armor: row.armor,
+        hp: row.hp,           // 🟢 อัปเดต
+        power: row.power,     // 🟢 อัปเดต
         exp: row.exp,
         speed: row.speed,
         isBoss: row.isBoss,
+        
+        // ข้อมูล Quiz Move
+        quiz_move_code: row.quiz_move_code,
+        quiz_move_cost: row.quiz_move_cost,
+        quiz_move_info: row.quiz_move_info || null, // ข้อมูลรายละเอียดท่าจากตาราง move
+
         pattern_list: row.pattern_list ?? []
       };
 
@@ -158,7 +183,7 @@ export async function getStageEvents(req, res) {
       return acc;
     }, []);
 
-    // 4️⃣ Response
+    // 6️⃣ Response
     return res.status(200).json({
       ...stageData,
       events: groupedEvents

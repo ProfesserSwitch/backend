@@ -39,5 +39,10 @@ router.post(
   authMiddleware,
   playerC.updateMoney
 );
+router.post(
+  "/update-resources",
+  authMiddleware,
+  playerC.updateResources
+);
 
 export default router;

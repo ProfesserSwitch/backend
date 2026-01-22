@@ -107,10 +107,20 @@ export async function updateDict(req, res) {
   const { word } = req.params;
   const { type, meaning, level } = req.body;
 
-  if (!word || !type || !meaning || typeof level !== "number") {
+  // ✅ level เป็น string ("A1","A2","B1","B2") ตามที่หน้า Admin ส่งมา
+  if (!word || !type || !meaning || !level) {
     return res.status(400).json({
       isSuccess: false,
       message: "invalid data",
+    });
+  }
+
+  // ✅ กันค่าหลุด
+  const allowedLevels = new Set(["A1", "A2", "B1", "B2"]);
+  if (!allowedLevels.has(String(level).trim())) {
+    return res.status(400).json({
+      isSuccess: false,
+      message: "invalid level",
     });
   }
 
@@ -124,7 +134,7 @@ export async function updateDict(req, res) {
       WHERE word = $4
       RETURNING word, type, meaning, level
       `,
-      [type.trim(), meaning.trim(), level, word]
+      [String(type).trim(), String(meaning).trim(), String(level).trim(), word]
     );
 
     if (result.rowCount === 0) {
@@ -144,6 +154,7 @@ export async function updateDict(req, res) {
     return res.status(500).json({ message: "server error" });
   }
 }
+
 
 export async function deleteDict(req, res) {
   console.log("DELETE /dict");

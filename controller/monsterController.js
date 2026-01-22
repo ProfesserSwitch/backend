@@ -58,7 +58,7 @@ const upload = multer({
 });
 
 // ------------------------------
-// ✅ GET monsters (เดิม)
+// ✅ GET monsters
 // ------------------------------
 export async function getMonster(req, res) {
   try {
@@ -101,19 +101,21 @@ export async function getMonster(req, res) {
 }
 
 // ------------------------------
-// ✅ CREATE monster (เดิม)
+// ✅ CREATE monster
+// แก้ไข: เพิ่ม quiz_move_code และ quiz_move_cost
 // ------------------------------
 export async function createMonster(req, res) {
   const {
     id,
     name,
-    max_hp,
-    atk_power_min,
-    atk_power_max,
+    hp,
+    power,
     description,
-    armor,
     exp,
     speed,
+    isBoss,
+    quiz_move_code, // เพิ่มใหม่
+    quiz_move_cost, // เพิ่มใหม่
     monster_moves = []
   } = req.body;
 
@@ -125,10 +127,10 @@ export async function createMonster(req, res) {
     await client.query(
       `
       INSERT INTO monster
-        (id, name, max_hp, atk_power_min, atk_power_max, description, armor, exp, speed)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+        (id, name, hp, power, description, exp, speed, "isBoss", quiz_move_code, quiz_move_cost)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       `,
-      [id, name, max_hp, atk_power_min, atk_power_max, description, armor, exp, speed]
+      [id, name, hp, power, description, exp, speed, isBoss, quiz_move_code, quiz_move_cost]
     );
 
     for (const pattern of monster_moves) {
@@ -158,18 +160,20 @@ export async function createMonster(req, res) {
 }
 
 // ------------------------------
-// ✅ UPDATE monster (เดิม)
+// ✅ UPDATE monster
+// แก้ไข: เพิ่ม quiz_move_code และ quiz_move_cost
 // ------------------------------
 export async function updateMonster(req, res) {
   const {
     name,
-    max_hp,
-    atk_power_min,
-    atk_power_max,
+    hp,
+    power,
     description,
-    armor,
     exp,
     speed,
+    isBoss,
+    quiz_move_code, // เพิ่มใหม่
+    quiz_move_cost, // เพิ่มใหม่
     monster_moves = []
   } = req.body;
 
@@ -183,16 +187,17 @@ export async function updateMonster(req, res) {
       `
       UPDATE monster SET
         name=$1,
-        max_hp=$2,
-        atk_power_min=$3,
-        atk_power_max=$4,
-        description=$5,
-        armor=$6,
-        exp=$7,
-        speed=$8
-      WHERE id=$9
+        hp=$2,
+        power=$3,
+        description=$4,
+        exp=$5,
+        speed=$6,
+        "isBoss"=$7,
+        quiz_move_code=$8,
+        quiz_move_cost=$9
+      WHERE id=$10
       `,
-      [name, max_hp, atk_power_min, atk_power_max, description, armor, exp, speed, id]
+      [name, hp, power, description, exp, speed, isBoss, quiz_move_code, quiz_move_cost, id]
     );
 
     if (result.rowCount === 0) {
@@ -226,7 +231,7 @@ export async function updateMonster(req, res) {
 }
 
 // ------------------------------
-// ✅ DELETE monster (เพิ่ม: ลบรูปด้วย)
+// ✅ DELETE monster
 // ------------------------------
 export async function deleteMonster(req, res) {
   const { id } = req.params;
