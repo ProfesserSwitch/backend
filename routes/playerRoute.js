@@ -11,7 +11,6 @@ router.get("/checkAuth", authMiddleware, playerC.checkAuth);
 
 router.get("/getplayer", playerC.getPlayer);
 
-// ⭐⭐ เพิ่มอันนี้ ⭐⭐
 router.get(
   "/checkFirstTime",
   authMiddleware,
@@ -43,6 +42,16 @@ router.post(
   "/update-resources",
   authMiddleware,
   playerC.updateResources
+);
+router.post(
+  "/level-up",
+  authMiddleware,
+  playerC.levelUpHero
+);
+router.post(
+  "/preview-level-up",
+  authMiddleware,
+  playerC.previewLevelUp
 );
 
 export default router;

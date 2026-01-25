@@ -6,7 +6,7 @@ import jwt from "jsonwebtoken";
 // 🛠️ HELPER: Stat Calculation Tables & Logic
 // ==========================================
 
-// ✅ Updated Range: 8-20 (Shifted from 10-22)
+// Updated Range: 8-20 (Shifted from 10-22)
 const STAT_DATA = {
   HP: {
     8: 7, 9: 10, 10: 13, 11: 15, 12: 18, 13: 21,
@@ -28,7 +28,7 @@ const POWER_GROUPS = {
   G3: ["V", "W", "J", "X", "Y", "Q", "Z"]
 };
 
-// ✅ Updated Power Levels to start at Level 8 (Range 8-20)
+// Updated Power Levels to start at Level 8 (Range 8-20)
 const POWER_LEVELS = {
   8: { G1: 0.50, G2: 1.00, G3: 1.50 },
   9: { G1: 0.75, G2: 1.00, G3: 1.50 },
@@ -60,7 +60,6 @@ function getCalculatedStats(baseHpLv, basePowerLv, baseSpeedLv, baseSlotLv, curr
   const effectiveSpeedLv = bSpeed + levelModifier;
   const effectiveSlotLv = bSlot + levelModifier;
 
-  // ✅ Fallback to 20 (max index)
   const finalHp = STAT_DATA.HP[effectiveHpLv] || STAT_DATA.HP[20] || 0;
   const finalSpeed = STAT_DATA.SPEED[effectiveSpeedLv] || STAT_DATA.SPEED[20] || 0;
   const finalSlot = STAT_DATA.SLOT[effectiveSlotLv] || STAT_DATA.SLOT[20] || effectiveSlotLv;
@@ -77,7 +76,12 @@ function getCalculatedStats(baseHpLv, basePowerLv, baseSpeedLv, baseSlotLv, curr
     hp: finalHp,
     speed: finalSpeed,
     slot: finalSlot,
-    power: finalPower,
+    power: finalPower, 
+    
+    common_tile_dmg: pValues ? pValues.G1 : 0,
+    uncommon_tile_dmg: pValues ? pValues.G2 : 0,
+    rare_tile_dmg: pValues ? pValues.G3 : 0,
+
     levels: {
       hp_lv: effectiveHpLv,
       speed_lv: effectiveSpeedLv,
@@ -167,7 +171,7 @@ export async function register(req, res) {
         await client.query(
           `
           INSERT INTO player_hero
-          (player_id, hero_id, level, next_exp, is_selected)
+          (player_id, hero_id, level, next_upgrade, is_selected)
           VALUES ($1,$2,1,100,true)
           `,
           [username, hero.id]
@@ -216,7 +220,7 @@ export async function login(req, res) {
         ph.id AS player_hero_id,
         ph.hero_id,
         ph.level,
-        ph.next_exp,
+        ph.next_upgrade,
         ph.is_selected,
 
         h.name,
@@ -283,7 +287,7 @@ export async function login(req, res) {
     const theuser = {
       username: userRow.username,
       role: userRow.role,
-      money: resourceData.coin || 0, // ⭐ ใช้ coin จาก resource แทน money
+      money: resourceData.coin || 0, 
       heroes: heroesWithStats, 
       stages: stageResult.rows,
       potion: potionData 
@@ -330,6 +334,7 @@ export async function checkAuth(req, res) {
         ph.id AS player_hero_id,
         ph.hero_id,
         ph.level,
+        ph.next_upgrade,
         ph.is_selected,
 
         h.name,
@@ -394,7 +399,7 @@ export async function checkAuth(req, res) {
     const theuser = {
       username: userRow.username,
       role: userRow.role,
-      money: resourceData.coin || 0, // ⭐ ใช้ coin
+      money: resourceData.coin || 0, 
       heroes: heroesWithStats, 
       stages: stageResult.rows,
       potion: potionData
@@ -566,7 +571,7 @@ export async function buyHero(req, res) {
       `
       INSERT INTO player_hero (
         player_id, hero_id,
-        level, next_exp, is_selected
+        level, next_upgrade, is_selected
       )
       VALUES (
         $1, $2,
@@ -807,6 +812,200 @@ export async function updateResources(req, res) {
       isSuccess: false, 
       message: error.message 
     });
+  } finally {
+    client.release();
+  }
+}
+
+// ===============================
+// 🆙 LEVEL UP (CALCULATE NEXT UPGRADE)
+// ===============================
+export async function levelUpHero(req, res) {
+  const { heroId } = req.body;
+  const username = req.user.username;
+
+  console.log(`POST / Level Up +1 for: ${username}, Hero: ${heroId}`);
+
+  if (!heroId) {
+    return res.status(400).json({ isSuccess: false, message: "Missing heroId" });
+  }
+
+  const client = await database.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    // 1. ดึงข้อมูลปัจจุบันออกมาก่อน เพื่อเอามาคำนวณสูตร
+    const currentHeroResult = await client.query(
+      `SELECT level, next_upgrade FROM player_hero WHERE player_id = $1 AND hero_id = $2`,
+      [username, heroId]
+    );
+
+    if (currentHeroResult.rowCount === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ isSuccess: false, message: "Hero not found or not owned" });
+    }
+
+    const currentData = currentHeroResult.rows[0];
+    const currentLevel = Number(currentData.level);
+    const currentCost = Number(currentData.next_upgrade) || 100; // กันเหนียวถ้าเป็น 0 ให้เริ่มที่ 100
+
+    // ⭐ FORMULA ZONE: สูตรคำนวณราคาขั้นถัดไป (แก้ไขตรงนี้ได้) ⭐
+    // ตัวอย่าง: ราคาเดิม x 1.5 (เพิ่มขึ้น 50% ทุกเลเวล) และปัดเศษลง
+    const newNextUpgrade = Math.floor(currentCost * 1.5);
+    
+    // หรือถ้าอยากให้เพิ่มทีละ 100 คงที่ ก็ใช้: const newNextUpgrade = currentCost + 100;
+
+    // 2. อัปเดต Level +1 และค่า Next Upgrade ใหม่ลง Database
+    const updateResult = await client.query(
+      `
+      UPDATE player_hero
+      SET 
+        level = level + 1,
+        next_upgrade = $1
+      WHERE player_id = $2 AND hero_id = $3
+      RETURNING *
+      `,
+      [newNextUpgrade, username, heroId]
+    );
+
+    // 3. ดึงข้อมูล Hero Base Stats เพื่อมาคำนวณ Stats ใหม่ (เหมือนเดิม)
+    const heroDetails = await client.query(
+      `
+      SELECT 
+        ph.*,
+        h.name, h.description,
+        h.hp_lv, h.power_lv, h.speed_lv, h.slot_lv, 
+        h.ability_code, h.ability_description, h.ability_cost
+      FROM player_hero ph
+      JOIN hero h ON ph.hero_id = h.id
+      WHERE ph.player_id = $1 AND ph.hero_id = $2
+      `,
+      [username, heroId]
+    );
+
+    const heroRow = heroDetails.rows[0];
+
+    // 4. คำนวณ Stats ใหม่ด้วย Level ที่เพิ่งอัปเดต
+    const calculated = getCalculatedStats(
+       heroRow.hp_lv, 
+       heroRow.power_lv, 
+       heroRow.speed_lv, 
+       heroRow.slot_lv, 
+       heroRow.level 
+    );
+
+    await client.query("COMMIT");
+
+    return res.json({
+      isSuccess: true,
+      message: `Level Up! Now Level ${heroRow.level}`,
+      hero: {
+        ...heroRow,
+        stats: calculated,
+        // next_upgrade จะถูกส่งกลับไปใน heroRow อยู่แล้วจากการ query
+      }
+    });
+
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("levelUpHero error:", err);
+    return res.status(500).json({ isSuccess: false, message: err.message });
+  } finally {
+    client.release();
+  }
+}
+
+export async function previewLevelUp(req, res) {
+  const { heroId } = req.body;
+  const username = req.user.username;
+
+  if (!heroId) {
+    return res.status(400).json({ isSuccess: false, message: "Missing heroId" });
+  }
+
+  const client = await database.connect();
+
+  try {
+    // 1. ดึงข้อมูล Hero
+    const result = await client.query(
+      `
+      SELECT 
+        ph.level,
+        h.hp_lv, h.power_lv, h.speed_lv, h.slot_lv
+      FROM player_hero ph
+      JOIN hero h ON ph.hero_id = h.id
+      WHERE ph.player_id = $1 AND ph.hero_id = $2
+      `,
+      [username, heroId]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ isSuccess: false, message: "Hero not found" });
+    }
+
+    const heroRow = result.rows[0];
+    const currentLevel = Number(heroRow.level);
+    const nextLevel = currentLevel + 1;
+
+    // 2. คำนวณ Stats ปัจจุบัน และ อนาคต
+    const currentStats = getCalculatedStats(
+      heroRow.hp_lv, heroRow.power_lv, heroRow.speed_lv, heroRow.slot_lv, currentLevel
+    );
+
+    const nextStats = getCalculatedStats(
+      heroRow.hp_lv, heroRow.power_lv, heroRow.speed_lv, heroRow.slot_lv, nextLevel
+    );
+
+    // 3. ดึงค่าพลังโจมตีตัวแทนแต่ละกลุ่ม (ใช้ตัวอักษรตัวแรกของกลุ่มเป็นตัวแทน)
+    // G1: "A", G2: "L", G3: "V" (อิงตาม POWER_GROUPS ที่คุณประกาศไว้ข้างบน)
+    const curP = currentStats.power;
+    const nxtP = nextStats.power;
+
+    const formatDiff = (curr, next) => {
+        const diff = next - curr;
+        return {
+            current: curr,
+            next: next,
+            diff: diff > 0 ? `+${diff.toFixed(2)}` : diff.toFixed(2) // ใส่เครื่องหมาย + ให้สวยงาม
+        };
+    };
+
+    const comparison = {
+      level: { 
+          current: currentLevel, 
+          next: nextLevel, 
+          diff: 1 
+      },
+      hp: { 
+          current: currentStats.hp, 
+          next: nextStats.hp, 
+          diff: nextStats.hp - currentStats.hp 
+      },
+      speed: { 
+          current: currentStats.speed, 
+          next: nextStats.speed, 
+          diff: nextStats.speed - currentStats.speed 
+      },
+      slot: { 
+          current: currentStats.slot, 
+          next: nextStats.slot, 
+          diff: nextStats.slot - currentStats.slot 
+      },
+      // ✅ เพิ่มครบทั้ง 3 Groups ตามที่ขอ
+      power_G1: formatDiff(curP['A'] || 0, nxtP['A'] || 0), // สระ
+      power_G2: formatDiff(curP['L'] || 0, nxtP['L'] || 0), // อักษรปกติ
+      power_G3: formatDiff(curP['V'] || 0, nxtP['V'] || 0)  // อักษรยาก (V, W, J, X...)
+    };
+
+    return res.json({
+      isSuccess: true,
+      data: comparison
+    });
+
+  } catch (err) {
+    console.error("previewLevelUp error:", err);
+    return res.status(500).json({ isSuccess: false, message: err.message });
   } finally {
     client.release();
   }

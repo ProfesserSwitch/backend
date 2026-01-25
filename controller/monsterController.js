@@ -107,6 +107,7 @@ export async function getMonster(req, res) {
 export async function createMonster(req, res) {
   const {
     id,
+    no,
     name,
     hp,
     power,
@@ -114,8 +115,8 @@ export async function createMonster(req, res) {
     exp,
     speed,
     isBoss,
-    quiz_move_code, // เพิ่มใหม่
-    quiz_move_cost, // เพิ่มใหม่
+    quiz_move_code, 
+    quiz_move_cost, 
     monster_moves = []
   } = req.body;
 
@@ -127,10 +128,10 @@ export async function createMonster(req, res) {
     await client.query(
       `
       INSERT INTO monster
-        (id, name, hp, power, description, exp, speed, "isBoss", quiz_move_code, quiz_move_cost)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        (id, no, name, hp, power, description, exp, speed, "isBoss", quiz_move_code, quiz_move_cost)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
       `,
-      [id, name, hp, power, description, exp, speed, isBoss, quiz_move_code, quiz_move_cost]
+      [id, no, name, hp, power, description, exp, speed, isBoss, quiz_move_code, quiz_move_cost]
     );
 
     for (const pattern of monster_moves) {
@@ -165,6 +166,7 @@ export async function createMonster(req, res) {
 // ------------------------------
 export async function updateMonster(req, res) {
   const {
+    no,
     name,
     hp,
     power,
@@ -186,18 +188,19 @@ export async function updateMonster(req, res) {
     const result = await client.query(
       `
       UPDATE monster SET
-        name=$1,
-        hp=$2,
-        power=$3,
-        description=$4,
-        exp=$5,
-        speed=$6,
-        "isBoss"=$7,
-        quiz_move_code=$8,
-        quiz_move_cost=$9
-      WHERE id=$10
+        no=$1,
+        name=$2,
+        hp=$3,
+        power=$4,
+        description=$5,
+        exp=$6,
+        speed=$7,
+        "isBoss"=$8,
+        quiz_move_code=$9,
+        quiz_move_cost=$10
+      WHERE id=$11
       `,
-      [name, hp, power, description, exp, speed, isBoss, quiz_move_code, quiz_move_cost, id]
+      [no, name, hp, power, description, exp, speed, isBoss, quiz_move_code, quiz_move_cost, id]
     );
 
     if (result.rowCount === 0) {
