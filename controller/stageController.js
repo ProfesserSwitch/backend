@@ -4,7 +4,7 @@ import path from "path";
 import multer from "multer";
 
 // ==================================================
-// ✅ MULTER CONFIG (อยู่ใน controller ทั้งหมด)
+// MULTER CONFIG 
 // ==================================================
 
 // เก็บเป็น img_map/{stageId}.png
@@ -83,14 +83,14 @@ export async function getStageEvents(req, res) {
         m.id               AS monster_id,
         m.name,
         m.description,
-        m.hp,              -- 🟢 แก้จาก max_hp
-        m.power,           -- 🟢 แก้จาก atk_power_min/max รวมเป็น power
+        m.hp,           
+        m.power,          
         -- m.armor ลบออกแล้ว
         m.exp,
         m.speed,
         m."isBoss",
-        m.quiz_move_code,  -- 🟢 เพิ่ม
-        m.quiz_move_cost,  -- 🟢 เพิ่ม
+        m.quiz_move_code, 
+        m.quiz_move_cost,  
 
         -- 🟢 3️⃣ ดึงข้อมูล Quiz Move (แยกออกมาตามคำขอ)
         (

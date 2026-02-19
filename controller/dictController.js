@@ -32,10 +32,13 @@ export async function postDict(req, res)
   console.log(`POST / Dict is Requested`);
 
   try {
-    const { word, type, meaning, level } = req.body;
+    // 1. รับค่า id และ is_oxford เพิ่มเข้ามา
+    const { id, word, type, meaning, level, is_oxford } = req.body;
 
     // validate
-    if (!word || !type || !meaning || !level) {
+    // หมายเหตุ: เอา !level ออก เพราะ level เราสามารถเป็นค่าว่าง ("") ได้
+    // และเช็ค is_oxford ว่ามีการส่ง boolean มาจริงๆ ใช่ไหม
+    if (!id || !word || !type || !meaning || typeof is_oxford !== 'boolean') {
       console.log("Invalid data");
       return res.status(400).json({
         isSuccess: false,
@@ -43,26 +46,35 @@ export async function postDict(req, res)
       });
     }
 
-    // insert (ไม่ต้องใส่ id / created_at)
+    // insert (เพิ่ม id, level, is_oxford เข้าไปใน Query)
     const result = await database.query(
       `
-        INSERT INTO dictionary (word, type, meaning, level)
-        VALUES ($1, $2, $3, $4)
+        INSERT INTO dictionary (id, word, type, meaning, level, is_oxford)
+        VALUES ($1, $2, $3, $4, $5, $6)
         RETURNING *
       `,
-      [word, type, meaning, level]
+      [id, word, type, meaning, level, is_oxford]
     );
 
-    console.log("Player registered successfully");
+    console.log(`Word '${word}' registered successfully`);
     // ส่งเฉพาะข้อมูลที่ควรส่ง
     return res.json({
       isSuccess: true,
-      message: "server error",
+      message: "word added successfully", // แก้จาก "server error" เป็นข้อความสำเร็จ
       data: result.rows[0],
     });
 
   } catch (err) {
     console.error(err);
+    
+    // ดัก Error เผื่อกรณีคีย์ซ้ำ (id ซ้ำ) ที่เราป้องกันไว้ในตาราง
+    if (err.code === '23505') { 
+      return res.status(409).json({
+        isSuccess: false,
+        message: "word and type already exist",
+      });
+    }
+
     return res.status(500).json({
       isSuccess: false,
       message: "server error",

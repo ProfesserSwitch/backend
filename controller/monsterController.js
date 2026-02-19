@@ -234,23 +234,40 @@ export async function updateMonster(req, res) {
 }
 
 // ------------------------------
-// ✅ DELETE monster
+// ✅ DELETE monster (FIX FK: delete child rows first)
 // ------------------------------
 export async function deleteMonster(req, res) {
   const { id } = req.params;
+  const client = await database.connect();
 
-  // ลบใน DB ก่อน
-  const result = await database.query(`DELETE FROM monster WHERE id = $1`, [id]);
+  try {
+    await client.query("BEGIN");
 
-  if (result.rowCount === 0) {
-    return res.status(404).json({ message: "monster not found" });
+    // 1) ลบลูกก่อน กัน FK constraint (monster_move -> monster)
+    await client.query(`DELETE FROM monster_move WHERE monster_id = $1`, [id]);
+
+    // 2) ลบ monster
+    const result = await client.query(`DELETE FROM monster WHERE id = $1`, [id]);
+
+    if (result.rowCount === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ message: "monster not found" });
+    }
+
+    await client.query("COMMIT");
+
+    // 3) ลบไฟล์รูป (ถ้ามี) หลัง commit
+    deleteSpriteFilesById(id);
+
+    return res.status(200).json({ message: "monster deleted" });
+  } catch (error) {
+    await client.query("ROLLBACK");
+    return res.status(500).json({ message: error.message });
+  } finally {
+    client.release();
   }
-
-  // ลบไฟล์รูป (ถ้ามี)
-  deleteSpriteFilesById(id);
-
-  return res.status(200).json({ message: "monster deleted" });
 }
+
 
 // ------------------------------
 // ✅ POST /monster/:id/sprites

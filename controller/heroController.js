@@ -84,14 +84,20 @@ export async function createHero(req, res) {
       slot_lv,
       talk_win,
       talk_clear_stage,
+
+      // ✅ เพิ่ม ability fields
+      ability_code,
+      ability_description,
+      ability_cost,
     } = req.body;
 
     await database.query(
       `
       INSERT INTO hero
-      (id, name, price, description, hp_lv, power_lv, speed_lv, slot_lv, talk_win, talk_clear_stage)
+      (id, name, price, description, hp_lv, power_lv, speed_lv, slot_lv, talk_win, talk_clear_stage,
+       ability_code, ability_description, ability_cost)
       VALUES
-      ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+      ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
       `,
       [
         id,
@@ -104,6 +110,11 @@ export async function createHero(req, res) {
         Number(slot_lv),
         talk_win ?? null,
         talk_clear_stage ?? null,
+
+        // ✅ ability fields
+        ability_code ?? null,
+        ability_description ?? null,
+        ability_cost === undefined || ability_cost === "" ? null : Number(ability_cost),
       ]
     );
 
@@ -129,6 +140,11 @@ export async function updateHero(req, res) {
       slot_lv,
       talk_win,
       talk_clear_stage,
+
+      // ✅ เพิ่ม ability fields
+      ability_code,
+      ability_description,
+      ability_cost,
     } = req.body;
 
     await database.query(
@@ -142,8 +158,11 @@ export async function updateHero(req, res) {
         speed_lv=$6,
         slot_lv=$7,
         talk_win=$8,
-        talk_clear_stage=$9
-      WHERE id=$10
+        talk_clear_stage=$9,
+        ability_code=$10,
+        ability_description=$11,
+        ability_cost=$12
+      WHERE id=$13
       `,
       [
         name,
@@ -155,6 +174,12 @@ export async function updateHero(req, res) {
         Number(slot_lv),
         talk_win ?? null,
         talk_clear_stage ?? null,
+
+        // ✅ ability fields
+        ability_code ?? null,
+        ability_description ?? null,
+        ability_cost === undefined || ability_cost === "" ? null : Number(ability_cost),
+
         id,
       ]
     );
