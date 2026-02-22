@@ -14,4 +14,17 @@ router.post("/dict", dictC.postDict);
 router.put("/dict/:id", dictC.updateDict);
 router.delete("/dict/:id", dictC.deleteDict);
 
+/** =================================================
+ * 🔥 NEW: Dictionary Sentence Routes
+ * ================================================= */
+
+// ✅ เพิ่มประโยค
+router.post("/dict/sentence", dictC.postDictionarySentence);
+
+// ✅ ดึงประโยคตาม word_id
+router.get("/dict/sentence/:word_id", dictC.getSentencesByWordId);
+
+// ✅ ลบประโยค
+router.delete("/dict/sentence/:id", dictC.deleteDictionarySentence);
+
 export default router;

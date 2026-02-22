@@ -73,7 +73,7 @@ export async function getStageEvents(req, res) {
 
     const stageData = stageResult.rows[0];
 
-    // 2️⃣ ดึง Monster Spawn + Monster + Move Pattern + Quiz Move Details
+    // 2️⃣ ดึง Monster Spawn + Monster + Move Pattern + Quiz Move + Deck
     const query = `
       SELECT
         se.id              AS spawn_id,
@@ -83,16 +83,15 @@ export async function getStageEvents(req, res) {
         m.id               AS monster_id,
         m.name,
         m.description,
-        m.hp,           
-        m.power,          
-        -- m.armor ลบออกแล้ว
+        m.hp,
+        m.power,
         m.exp,
         m.speed,
         m."isBoss",
-        m.quiz_move_code, 
-        m.quiz_move_cost,  
+        m.quiz_move_code,
+        m.quiz_move_cost,
 
-        -- 🟢 3️⃣ ดึงข้อมูล Quiz Move (แยกออกมาตามคำขอ)
+        -- 🟢 Quiz Move
         (
           SELECT json_build_object(
             'id', qm.id,
@@ -111,7 +110,7 @@ export async function getStageEvents(req, res) {
           WHERE qm.id = m.quiz_move_code
         ) AS quiz_move_info,
 
-        -- 4️⃣ ดึงข้อมูล Move Pattern (เหมือนเดิม)
+        -- 🟢 Move Pattern
         (
           SELECT json_agg(
             json_build_object(
@@ -136,7 +135,20 @@ export async function getStageEvents(req, res) {
           FROM monster_move mp
           JOIN move mv ON mp.pattern_move = mv.id
           WHERE mp.monster_id = m.id
-        ) AS pattern_list
+        ) AS pattern_list,
+
+        -- 🟢🔥 NEW: Monster Deck
+        (
+          SELECT json_agg(
+            json_build_object(
+              'id', md.id,
+              'effect', md.effect,
+              'size', md.size
+            )
+          )
+          FROM monster_deck md
+          WHERE md.monster_id = m.id
+        ) AS deck_list
 
       FROM monster_spawn se
       JOIN monster m ON se.monster_id = m.id
@@ -157,18 +169,20 @@ export async function getStageEvents(req, res) {
         monster_id: row.monster_id,
         name: row.name,
         description: row.description,
-        hp: row.hp,           // 🟢 อัปเดต
-        power: row.power,     // 🟢 อัปเดต
+        hp: row.hp,
+        power: row.power,
         exp: row.exp,
         speed: row.speed,
         isBoss: row.isBoss,
-        
-        // ข้อมูล Quiz Move
+
         quiz_move_code: row.quiz_move_code,
         quiz_move_cost: row.quiz_move_cost,
-        quiz_move_info: row.quiz_move_info || null, // ข้อมูลรายละเอียดท่าจากตาราง move
+        quiz_move_info: row.quiz_move_info || null,
 
-        pattern_list: row.pattern_list ?? []
+        pattern_list: row.pattern_list ?? [],
+
+        // 🔥 NEW FIELD
+        deck_list: row.deck_list ?? []
       };
 
       if (group) {

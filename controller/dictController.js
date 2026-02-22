@@ -57,10 +57,22 @@ async function generateUniqueIdExcludeCurrent(word, type, currentId) {
 }
 
 /** ---------- Controllers ---------- **/
+function parseBool(v) {
+  if (v === true || v === false) return v;
+  if (v === undefined || v === null) return undefined;
+  const s = String(v).trim().toLowerCase();
+  if (["1", "true", "yes", "y", "on"].includes(s)) return true;
+  if (["0", "false", "no", "n", "off"].includes(s)) return false;
+  return undefined;
+}
+
 export async function getDict(req, res) {
   try {
+    const onlyOxford = parseBool(req.query.only_oxford ?? req.query.oxford);
+    const where = onlyOxford ? `WHERE is_oxford = true` : ``;
+
     const result = await database.query(
-      `SELECT id, word, type, meaning, level, is_oxford FROM dictionary`
+      `SELECT id, word, type, meaning, level, is_oxford FROM dictionary ${where} ORDER BY word ASC`
     );
     return res.status(200).json(result.rows);
   } catch (error) {
@@ -71,10 +83,13 @@ export async function getDict(req, res) {
 export async function searchDict(req, res) {
   const q = req.params.word;
   try {
+    const onlyOxford = parseBool(req.query.only_oxford ?? req.query.oxford);
+
     const result = await database.query(
       `SELECT id, word, type, meaning, level, is_oxford
        FROM dictionary
        WHERE word ILIKE $1
+       ${onlyOxford ? "AND is_oxford = true" : ""}
        ORDER BY word ASC
        LIMIT 10`,
       [`${q}%`]
@@ -92,11 +107,14 @@ export async function getDictByLetter(req, res) {
   }
 
   try {
+    const onlyOxford = parseBool(req.query.only_oxford ?? req.query.oxford);
+
     const result = await database.query(
       `
       SELECT id, word, type, meaning, level, is_oxford
       FROM dictionary
       WHERE word ILIKE $1
+      ${onlyOxford ? "AND is_oxford = true" : ""}
       ORDER BY word ASC
       `,
       [`${letter}%`]
@@ -237,11 +255,26 @@ export async function deleteDict(req, res) {
 }
 
 export async function queryDict(req, res) {
-  const { startsWith, contains, length = 0, level = null, limit = 50, lastWord } = req.body;
+  const {
+    startsWith,
+    contains,
+    length = 0,
+    level = null,
+    limit = 50,
+    lastWord,
+    only_oxford,
+    oxford,
+    onlyOxford,
+  } = req.body;
 
   let conditions = [];
   let values = [];
   let idx = 1;
+
+  const ox = parseBool(onlyOxford ?? only_oxford ?? oxford);
+  if (ox === true) {
+    conditions.push(`is_oxford = true`);
+  }
 
   if (startsWith && contains) {
     conditions.push(`word ILIKE $${idx++}`);
@@ -299,5 +332,143 @@ export async function queryDict(req, res) {
     });
   } catch (error) {
     return res.status(500).json({ isSuccess: false, message: "server error" });
+  }
+}
+
+/** =================================================
+ * 🔥 Dictionary Sentence Controllers
+ * ================================================= */
+
+// ✅ เพิ่มประโยค (ให้ DB gen id เอง)
+export async function postDictionarySentence(req, res) {
+  try {
+    const {
+      word_id,
+      sentence_en,
+      sentence_th,
+      word_highlight_en,
+      word_highlight_th,
+    } = req.body;
+
+    if (!word_id || !sentence_en || !sentence_th) {
+      return res.status(400).json({
+        isSuccess: false,
+        message: "invalid data (word_id, sentence_en, sentence_th are required)",
+      });
+    }
+
+    // ✅ เช็ค FK
+    const wordCheck = await database.query(
+      `SELECT id FROM dictionary WHERE id = $1 LIMIT 1`,
+      [word_id]
+    );
+
+    if (wordCheck.rowCount === 0) {
+      return res.status(404).json({
+        isSuccess: false,
+        message: "word_id not found in dictionary",
+      });
+    }
+
+    // ✅ ให้ Postgres สร้าง id (gen_random_uuid)
+    const result = await database.query(
+      `
+      INSERT INTO dictionary_sentence
+      (word_id, sentence_en, sentence_th, word_highlight_en, word_highlight_th)
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING *
+      `,
+      [
+        word_id,
+        String(sentence_en).trim(),
+        String(sentence_th).trim(),
+        word_highlight_en || null,
+        word_highlight_th || null,
+      ]
+    );
+
+    return res.json({
+      isSuccess: true,
+      message: "sentence added successfully",
+      data: result.rows[0],
+    });
+  } catch (error) {
+    return res.status(500).json({
+      isSuccess: false,
+      message: error.message,
+    });
+  }
+}
+
+// ✅ ดึงประโยคตาม word_id
+export async function getSentencesByWordId(req, res) {
+  const { word_id } = req.params;
+
+  if (!word_id) {
+    return res.status(400).json({
+      isSuccess: false,
+      message: "word_id is required",
+    });
+  }
+
+  try {
+    const result = await database.query(
+      `
+      SELECT id, word_id, sentence_en, sentence_th,
+             word_highlight_en, word_highlight_th
+      FROM dictionary_sentence
+      WHERE word_id = $1
+      ORDER BY id ASC
+      `,
+      [word_id]
+    );
+
+    return res.json({
+      isSuccess: true,
+      count: result.rows.length,
+      data: result.rows,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      isSuccess: false,
+      message: "server error",
+    });
+  }
+}
+
+// ✅ ลบประโยค
+export async function deleteDictionarySentence(req, res) {
+  const { id } = req.params;
+
+  if (!id) {
+    return res.status(400).json({
+      isSuccess: false,
+      message: "id is required",
+    });
+  }
+
+  try {
+    const result = await database.query(
+      `DELETE FROM dictionary_sentence WHERE id = $1 RETURNING id`,
+      [id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({
+        isSuccess: false,
+        message: "sentence not found",
+      });
+    }
+
+    return res.json({
+      isSuccess: true,
+      message: "sentence deleted successfully",
+      data: result.rows[0],
+    });
+  } catch (error) {
+    return res.status(500).json({
+      isSuccess: false,
+      message: "server error",
+    });
   }
 }

@@ -235,6 +235,7 @@ export async function login(req, res) {
         ph.level,
         ph.next_upgrade,
         ph.is_selected,
+
         h.name,
         h.description,
         h.hp_lv,
@@ -242,13 +243,27 @@ export async function login(req, res) {
         h.speed_lv,
         h.ability_code,
         h.ability_description,
-        h.ability_cost
+        h.ability_cost,
+
+        -- 🔥 NEW: hero deck
+        (
+          SELECT json_agg(
+            json_build_object(
+              'id', hd.id,
+              'effect', hd.effect,
+              'size', hd.size
+            )
+          )
+          FROM hero_deck hd
+          WHERE hd.hero_id = ph.hero_id
+        ) AS deck_list
+
       FROM player_hero ph
       JOIN hero h ON ph.hero_id = h.id
       WHERE ph.player_id = $1
       ORDER BY ph.hero_id ASC
       `,
-      [username]
+      [username] // ⚠️ checkAuth ใช้ userRow.username
     );
 
     const heroesWithStats = heroResult.rows.map((hero) => {
@@ -356,14 +371,27 @@ export async function checkAuth(req, res) {
         h.speed_lv,
         h.ability_code,
         h.ability_description,
-        h.ability_cost
+        h.ability_cost,
+
+        -- 🔥 NEW: hero deck
+        (
+          SELECT json_agg(
+            json_build_object(
+              'id', hd.id,
+              'effect', hd.effect,
+              'size', hd.size
+            )
+          )
+          FROM hero_deck hd
+          WHERE hd.hero_id = ph.hero_id
+        ) AS deck_list
 
       FROM player_hero ph
       JOIN hero h ON ph.hero_id = h.id
       WHERE ph.player_id = $1
       ORDER BY ph.hero_id ASC
       `,
-      [userRow.username],
+      [username] // ⚠️ checkAuth ใช้ userRow.username
     );
 
     const heroesWithStats = heroResult.rows.map((hero) => {
@@ -721,36 +749,38 @@ export async function unlockNextStage(req, res) {
 }
 
 export async function updateMoney(req, res) {
-  const { money } = req.body;
+  const { amount } = req.body; // ✅ เปลี่ยนจาก money -> amount
   const username = req.user.username;
 
-  if (money === undefined || money === null) {
+  if (amount === undefined || amount === null) {
     return res.status(400).json({
       isSuccess: false,
-      message: "Please provide 'money' value.",
+      message: "Please provide 'amount' value.",
     });
   }
 
   try {
+    // ✅ กันเงินติดลบ
     const result = await database.query(
       `
-      UPDATE player_resource 
-      SET coin = $1 
+      UPDATE player_resource
+      SET coin = GREATEST(coin + $1, 0)
       WHERE player_id = $2
       RETURNING coin
       `,
-      [money, username],
+      [amount, username],
     );
 
     if (result.rowCount === 0) {
-      return res
-        .status(404)
-        .json({ isSuccess: false, message: "Player resource not found" });
+      return res.status(404).json({
+        isSuccess: false,
+        message: "Player resource not found",
+      });
     }
 
     return res.json({
       isSuccess: true,
-      message: "Money updated successfully",
+      message: amount >= 0 ? "Money added" : "Money deducted",
       currentMoney: result.rows[0].coin,
     });
   } catch (error) {
