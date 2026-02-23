@@ -81,7 +81,7 @@ export async function createHero(req, res) {
   const client = await database.connect();
   try {
     const { 
-      id, name, price, description, hp_lv, power_lv, speed_lv, 
+      id, name, price, description, hp, power, speed, 
       talk_win, talk_clear_stage, 
       ability_cost, 
       hero_deck = [] 
@@ -91,10 +91,10 @@ export async function createHero(req, res) {
 
     // นำ slot_lv, ability_code และ ability_description ออก
     await client.query(
-      `INSERT INTO hero (id, name, price, description, hp_lv, power_lv, speed_lv, talk_win, talk_clear_stage, ability_cost)
+      `INSERT INTO hero (id, name, price, description, hp, power, speed, talk_win, talk_clear_stage, ability_cost)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
       [
-        id, name, Number(price), description, Number(hp_lv), Number(power_lv), Number(speed_lv), 
+        id, name, Number(price), description, Number(hp), Number(power), Number(speed), 
         talk_win, talk_clear_stage, 
         ability_cost === undefined || ability_cost === "" ? null : Number(ability_cost)
       ]
@@ -118,7 +118,7 @@ export async function updateHero(req, res) {
   const client = await database.connect();
   try {
     const { 
-      name, price, description, hp_lv, power_lv, speed_lv, 
+      name, price, description, hp, power, speed, 
       talk_win, talk_clear_stage, 
       ability_cost, 
       hero_deck = [] 
@@ -129,11 +129,11 @@ export async function updateHero(req, res) {
     // อัปเดตโดยไม่มี slot_lv, ability_code และ ability_description
     await client.query(
       `UPDATE hero SET 
-        name=$1, price=$2, description=$3, hp_lv=$4, power_lv=$5, speed_lv=$6, 
+        name=$1, price=$2, description=$3, hp=$4, power=$5, speed=$6, 
         talk_win=$7, talk_clear_stage=$8, ability_cost=$9 
        WHERE id=$10`,
       [
-        name, Number(price), description, Number(hp_lv), Number(power_lv), Number(speed_lv), 
+        name, Number(price), description, Number(hp), Number(power), Number(speed), 
         talk_win, talk_clear_stage, 
         ability_cost === undefined || ability_cost === "" ? null : Number(ability_cost),
         id

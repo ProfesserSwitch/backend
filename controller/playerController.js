@@ -3,89 +3,36 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
 // ==========================================
-// 🛠️ HELPER: Stat Calculation Tables & Logic
+// 🛠️ HELPER: Stat Calculation Logic
 // ==========================================
 
-// ปรับปรุงตารางค่าพลัง: เหลือแค่ HP, SPEED และ POWER (ซึ่งก็คือจำนวนตัวอักษร/Slot)
-const STAT_DATA = {
-  HP: {
-    8: 7,
-    9: 10,
-    10: 13,
-    11: 15,
-    12: 18,
-    13: 21,
-    14: 24,
-    15: 27,
-    16: 30,
-    17: 33,
-    18: 36,
-    19: 39,
-    20: 40,
-  },
-  SPEED: {
-    8: 4,
-    9: 5,
-    10: 6,
-    11: 7,
-    12: 8,
-    13: 9,
-    14: 10,
-    15: 11,
-    16: 12,
-    17: 13,
-    18: 14,
-    19: 15,
-    20: 16,
-  },
-  // POWER ในที่นี้คือจำนวนช่องตัวอักษร (เดิมคือ Slot)
-  POWER: {
-    8: 8,
-    9: 9,
-    10: 10,
-    11: 11,
-    12: 12,
-    13: 13,
-    14: 14,
-    15: 15,
-    16: 16,
-    17: 17,
-    18: 18,
-    19: 19,
-    20: 20,
-  },
-};
+function getCalculatedStats(baseHp, basePower, baseSpeed, currentLevel) {
+  const hp = Number(baseHp) || 0;
+  const power = Number(basePower) || 0;
+  const speed = Number(baseSpeed) || 0;
+  const level = Number(currentLevel) || 1;
 
-function getCalculatedStats(baseHpLv, basePowerLv, baseSpeedLv, currentLevel) {
-  // ⭐ Default base levels to 8 if not present
-  const bHp = Number(baseHpLv) || 8;
-  const bPower = Number(basePowerLv) || 8;
-  const bSpeed = Number(baseSpeedLv) || 8;
-  const cLevel = Number(currentLevel) || 1;
+  const levelModifier = level - 1;
 
-  const levelModifier = cLevel - 1;
+  // ⚙️ ตั้งค่าการเติบโตของ Status ต่อ 1 เลเวลได้ที่นี่
+  const hpGrowthPerLevel = 3; 
+  const powerGrowthPerLevel = 1; 
+  const speedGrowthPerLevel = 1; 
 
-  const effectiveHpLv = bHp + levelModifier;
-  const effectivePowerLv = bPower + levelModifier;
-  const effectiveSpeedLv = bSpeed + levelModifier;
-
-  const finalHp = STAT_DATA.HP[effectiveHpLv] || STAT_DATA.HP[20] || 0;
-  const finalSpeed =
-    STAT_DATA.SPEED[effectiveSpeedLv] || STAT_DATA.SPEED[20] || 0;
-  const finalPower =
-    STAT_DATA.POWER[effectivePowerLv] ||
-    STAT_DATA.POWER[20] ||
-    effectivePowerLv;
+  const finalHp = hp + (levelModifier * hpGrowthPerLevel);
+  const finalSpeed = speed + (levelModifier * speedGrowthPerLevel);
+  const finalPower = power + (levelModifier * powerGrowthPerLevel);
 
   return {
     hp: finalHp,
     speed: finalSpeed,
     power: finalPower, // จำนวนตัวอักษรที่ใส่ได้ใน slot
 
-    levels: {
-      hp_lv: effectiveHpLv,
-      speed_lv: effectiveSpeedLv,
-      power_lv: effectivePowerLv,
+    // ส่งค่า base กลับไปด้วยเผื่อ Frontend ต้องการอ้างอิง
+    base: {
+      hp: hp,
+      speed: speed,
+      power: power,
     },
   };
 }
@@ -238,12 +185,12 @@ export async function login(req, res) {
 
         h.name,
         h.description,
-        h.hp_lv,
-        h.power_lv,
-        h.speed_lv,
-        h.ability_code,
-        h.ability_description,
+        h.hp,
+        h.power,
+        h.speed,
         h.ability_cost,
+        h.talk_win,
+        h.talk_clear_stage,
 
         -- 🔥 NEW: hero deck
         (
@@ -268,9 +215,9 @@ export async function login(req, res) {
 
     const heroesWithStats = heroResult.rows.map((hero) => {
       const calculated = getCalculatedStats(
-        hero.hp_lv || 8,
-        hero.power_lv || 8,
-        hero.speed_lv || 8,
+        hero.hp,
+        hero.power,
+        hero.speed,
         hero.level
       );
       return { ...hero, stats: calculated };
@@ -366,12 +313,12 @@ export async function checkAuth(req, res) {
 
         h.name,
         h.description,
-        h.hp_lv,
-        h.power_lv,
-        h.speed_lv,
-        h.ability_code,
-        h.ability_description,
+        h.hp,
+        h.power,
+        h.speed,
         h.ability_cost,
+        h.talk_win,
+        h.talk_clear_stage,
 
         -- 🔥 NEW: hero deck
         (
@@ -396,9 +343,9 @@ export async function checkAuth(req, res) {
 
     const heroesWithStats = heroResult.rows.map((hero) => {
       const calculated = getCalculatedStats(
-        hero.hp_lv || 8,
-        hero.power_lv || 8,
-        hero.speed_lv || 8,
+        hero.hp,
+        hero.power,
+        hero.speed,
         hero.level,
       );
       return {
@@ -521,7 +468,7 @@ export async function selectHero(req, res) {
       )
       SELECT 
         uph.*,
-        h.hp_lv, h.power_lv, h.speed_lv, h.ability_code, h.ability_cost, h.ability_description
+        h.hp, h.power, h.speed, h.ability_cost, h.talk_win, h.talk_clear_stage
       FROM updated_ph uph
       JOIN hero h ON uph.hero_id = h.id
       `,
@@ -538,9 +485,9 @@ export async function selectHero(req, res) {
 
     const heroRow = result.rows[0];
     const calculated = getCalculatedStats(
-      heroRow.hp_lv,
-      heroRow.power_lv,
-      heroRow.speed_lv,
+      heroRow.hp,
+      heroRow.power,
+      heroRow.speed,
       heroRow.level,
     );
     const selectedHeroWithStats = { ...heroRow, stats: calculated };
@@ -618,9 +565,9 @@ export async function buyHero(req, res) {
     const newHero = newHeroResult.rows[0];
 
     const calculated = getCalculatedStats(
-      hero.hp_lv,
-      hero.power_lv,
-      hero.speed_lv,
+      hero.hp,
+      hero.power,
+      hero.speed,
       newHero.level,
     );
 
@@ -894,7 +841,7 @@ export async function levelUpHero(req, res) {
 
     const heroDetails = await client.query(
       `
-      SELECT ph.*, h.hp_lv, h.power_lv, h.speed_lv, h.name, h.ability_code
+      SELECT ph.*, h.hp, h.power, h.speed, h.name, h.talk_win, h.talk_clear_stage
       FROM player_hero ph
       JOIN hero h ON ph.hero_id = h.id
       WHERE ph.player_id = $1 AND ph.hero_id = $2
@@ -904,9 +851,9 @@ export async function levelUpHero(req, res) {
 
     const heroRow = heroDetails.rows[0];
     const calculatedStats = getCalculatedStats(
-      heroRow.hp_lv,
-      heroRow.power_lv,
-      heroRow.speed_lv,
+      heroRow.hp,
+      heroRow.power,
+      heroRow.speed,
       heroRow.level,
     );
 
@@ -942,7 +889,7 @@ export async function previewLevelUp(req, res) {
   try {
     const result = await client.query(
       `
-      SELECT ph.level, h.hp_lv, h.power_lv, h.speed_lv
+      SELECT ph.level, h.hp, h.power, h.speed
       FROM player_hero ph
       JOIN hero h ON ph.hero_id = h.id
       WHERE ph.player_id = $1 AND ph.hero_id = $2
@@ -961,15 +908,15 @@ export async function previewLevelUp(req, res) {
     const nextLevel = currentLevel + 1;
 
     const currentStats = getCalculatedStats(
-      heroRow.hp_lv,
-      heroRow.power_lv,
-      heroRow.speed_lv,
+      heroRow.hp,
+      heroRow.power,
+      heroRow.speed,
       currentLevel,
     );
     const nextStats = getCalculatedStats(
-      heroRow.hp_lv,
-      heroRow.power_lv,
-      heroRow.speed_lv,
+      heroRow.hp,
+      heroRow.power,
+      heroRow.speed,
       nextLevel,
     );
 
