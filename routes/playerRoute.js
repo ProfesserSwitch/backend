@@ -10,6 +10,7 @@ router.get("/logout", playerC.logout);
 router.get("/checkAuth", authMiddleware, playerC.checkAuth);
 
 router.get("/getplayer", playerC.getPlayer);
+router.patch("/player-role", playerC.updatePlayerRole);
 
 router.get(
   "/checkFirstTime",
@@ -52,6 +53,21 @@ router.post(
   "/preview-level-up",
   authMiddleware,
   playerC.previewLevelUp
+);
+router.post(
+  "/update-stamina",
+  authMiddleware,
+  playerC.updateStamina
+);
+router.post(
+  "/upgrade-potion-slot",
+  authMiddleware,
+  playerC.upgradePotionSlot
+);
+router.post(
+  "/reduce-stamina-timer", 
+  authMiddleware, 
+  playerC.reduceStaminaTimer
 );
 
 export default router;

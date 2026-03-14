@@ -73,11 +73,12 @@ export async function getStageEvents(req, res) {
 
     const stageData = stageResult.rows[0];
 
-    // 2️⃣ ดึง Monster Spawn + Monster + Move Pattern + Quiz Move + Deck
+    // 2️⃣ ดึง Monster Spawn + Monster + Deck
     const query = `
       SELECT
         se.id              AS spawn_id,
         se.stage_id,
+        se.level,          -- 🟢 เพิ่มการดึง level จากตาราง monster_spawn
         se.distant_spawn,
 
         m.id               AS monster_id,
@@ -88,54 +89,7 @@ export async function getStageEvents(req, res) {
         m.exp,
         m.speed,
         m."isBoss",
-        m.quiz_move_code,
         m.quiz_move_cost,
-
-        -- 🟢 Quiz Move
-        (
-          SELECT json_build_object(
-            'id', qm.id,
-            'name', qm.move_name,
-            'type', qm.type,
-            'is_quiz', qm.is_quiz,
-            'is_dash', qm.is_dash,
-            'power', qm.power,
-            'debuff_code', qm.debuff_code,
-            'debuff_chance', qm.debuff_chance,
-            'debuff_count', qm.debuff_count,
-            'debuff_turn', qm.debuff_turn,
-            'target', qm.target
-          )
-          FROM move qm
-          WHERE qm.id = m.quiz_move_code
-        ) AS quiz_move_info,
-
-        -- 🟢 Move Pattern
-        (
-          SELECT json_agg(
-            json_build_object(
-              'pattern_no', mp.pattern_no,
-              'order', mp.pattern_order,
-              'move', json_build_object(
-                'id', mv.id,
-                'name', mv.move_name,
-                'type', mv.type,
-                'is_quiz', mv.is_quiz,
-                'is_dash', mv.is_dash,
-                'power', mv.power,
-                'debuff_code', mv.debuff_code,
-                'debuff_chance', mv.debuff_chance,
-                'debuff_count', mv.debuff_count,
-                'debuff_turn', mv.debuff_turn,
-                'target', mv.target
-              )
-            )
-            ORDER BY mp.pattern_no, mp.pattern_order
-          )
-          FROM monster_move mp
-          JOIN move mv ON mp.pattern_move = mv.id
-          WHERE mp.monster_id = m.id
-        ) AS pattern_list,
 
         -- 🟢🔥 NEW: Monster Deck
         (
@@ -167,6 +121,7 @@ export async function getStageEvents(req, res) {
       const monsterData = {
         spawn_id: row.spawn_id,
         monster_id: row.monster_id,
+        level: row.level,    // 🟢 ใส่ level เข้ามาในข้อมูลของมอนสเตอร์แต่ละตัว
         name: row.name,
         description: row.description,
         hp: row.hp,
@@ -175,11 +130,7 @@ export async function getStageEvents(req, res) {
         speed: row.speed,
         isBoss: row.isBoss,
 
-        quiz_move_code: row.quiz_move_code,
         quiz_move_cost: row.quiz_move_cost,
-        quiz_move_info: row.quiz_move_info || null,
-
-        pattern_list: row.pattern_list ?? [],
 
         // 🔥 NEW FIELD
         deck_list: row.deck_list ?? []
